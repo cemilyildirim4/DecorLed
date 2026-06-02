@@ -1,0 +1,6 @@
+@DecorLed.Api_HostAddress = http://localhost:5265
+
+GET {{DecorLed.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
