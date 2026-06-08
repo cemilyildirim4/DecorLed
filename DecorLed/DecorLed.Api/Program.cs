@@ -1,4 +1,18 @@
+using DecorLed.Api.Repositories;
+
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("ReactCorsPolicy", policy =>
+    {
+        policy.WithOrigins("htpp://localhost:3000", "htpp://localhost:5173")
+           .AllowAnyHeader()
+           .AllowAnyMethod();
+    });
+});
+
+builder.Services.AddScoped<IProductRepository, ProductRepository>();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 // Add services to the container.
@@ -18,6 +32,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseCors("ReactCorsPolicy");
 
 app.UseAuthorization();
 

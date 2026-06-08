@@ -19,7 +19,7 @@ namespace DecorLed.Api.Repositories
         {
             var sql = @"
                 select p.* , pa.* from products p
-                left join ProductAttributes pa on p.Id = pa.ProductId
+                left join productattributes pa on p.Id = pa.ProductId
             ";
 
             using (IDbConnection db = new NpgsqlConnection(_connectionString))
