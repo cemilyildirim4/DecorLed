@@ -13,13 +13,16 @@ namespace DecorLed.Api.Repositories
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection")
                 ?? throw new ArgumentNullException("Veritabanı bağlantı cümlesi bulunamadı!");
+
+            Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
         }
 
         public async Task<IEnumerable<Product>> GetAllProductsAsync()
         {
+
             var sql = @"
                 SELECT p.*, pa.* FROM products p
-                LEFT JOIN productattributes pa ON p.Id = pa.ProductId
+                LEFT JOIN productattributes pa ON p.id = pa.productid
             ";
 
             using (IDbConnection db = new NpgsqlConnection(_connectionString))
@@ -43,7 +46,7 @@ namespace DecorLed.Api.Repositories
 
                         return currentProduct;
                     },
-                    splitOn: "Id"
+                    splitOn: "id" 
                 );
                 return productDictionary.Values;
             }
@@ -51,13 +54,14 @@ namespace DecorLed.Api.Repositories
 
         public async Task<Product> AddProductAsync(Product product)
         {
+
             var insertProductSql = @"
-                INSERT INTO products (ProductName, Description, Price, StockQuantity, CategoryId)
-                VALUES (@ProductName, @Description, @Price, @StockQuantity, @CategoryId)
-                RETURNING Id;";
+                INSERT INTO products (productname, description, price, stockquantity, categoryid, image_url)
+                VALUES (@ProductName, @Description, @Price, @StockQuantity, @CategoryId, @ImageUrl)
+                RETURNING id;";
 
             var insertAttributeSql = @"
-                INSERT INTO productattributes (ProductId, AttributeName, AttributeValue)
+                INSERT INTO productattributes (productid, attributename, attributevalue)
                 VALUES (@ProductId, @AttributeName, @AttributeValue);";
 
             using (IDbConnection db = new NpgsqlConnection(_connectionString))
@@ -77,7 +81,6 @@ namespace DecorLed.Api.Repositories
                                 attribute.ProductId = productId;
                             }
 
-                            // 🔥 OPTİMİZASYON: Foreach döngüsüyle tek tek execute etmek yerine Dapper'a listeyi topluca verdik.
                             await db.ExecuteAsync(insertAttributeSql, product.Attributes, transaction);
                         }
 
@@ -95,21 +98,38 @@ namespace DecorLed.Api.Repositories
 
         public async Task<bool> DeleteProductAsync(int id)
         {
-            // 🔥 İYİLEŞTİRME: Tablonda ON DELETE CASCADE olduğu için productattributes'ı elle silme kodunu kaldırdık.
-            // Sadece ürünü sildiğinde PostgreSQL alt özellikleri otomatik temizler.
-            var deleteProductSql = "DELETE FROM products WHERE Id = @Id;";
+            // Önce ürüne bağlı dinamik özellikleri, sonra ürünün kendisini siliyoruz
+            var deleteAttributesSql = "DELETE FROM productattributes WHERE productid = @Id;";
+            var deleteProductSql = "DELETE FROM products WHERE id = @Id;";
 
             using (IDbConnection db = new NpgsqlConnection(_connectionString))
             {
-                // Tek bir SQL cümlesi çalışacağı için ekstra Transaction bloğuna ihtiyaç kalmadı (PostgreSQL bunu atomik yürütür).
-                var affectedRows = await db.ExecuteAsync(deleteProductSql, new { Id = id });
-                return affectedRows > 0;
+                db.Open();
+                using (var transaction = db.BeginTransaction())
+                {
+                    try
+                    {
+                        // 1. Önce bağımlı özellikleri uçuruyoruz
+                        await db.ExecuteAsync(deleteAttributesSql, new { Id = id }, transaction);
+
+                        // 2. Ana ürünü siliyoruz
+                        var affectedRows = await db.ExecuteAsync(deleteProductSql, new { Id = id }, transaction);
+
+                        transaction.Commit();
+                        return affectedRows > 0;
+                    }
+                    catch (Exception ex)
+                    {
+                        transaction.Rollback();
+                        throw new Exception($"Ürün envanterden silinirken hata oluştu: {ex.Message}");
+                    }
+                }
             }
         }
 
         public async Task<IEnumerable<Category>> GetAllCategoriesAsync()
         {
-            var sql = "SELECT Id, CategoryName FROM categories ORDER BY CategoryName;";
+            var sql = "SELECT id, categoryname FROM categories ORDER BY categoryname;";
             using (IDbConnection db = new NpgsqlConnection(_connectionString))
             {
                 return await db.QueryAsync<Category>(sql);
@@ -118,7 +138,7 @@ namespace DecorLed.Api.Repositories
 
         public async Task<IEnumerable<CategoryAttributeTemplate>> GetAttributesByCategoryIdAsync(int categoryId)
         {
-            var sql = "SELECT Id, CategoryId, AttributeName FROM category_attribute_templates WHERE CategoryId = @CategoryId;";
+            var sql = "SELECT id, categoryid, attributename FROM category_attribute_templates WHERE categoryid = @CategoryId;";
             using (IDbConnection db = new NpgsqlConnection(_connectionString))
             {
                 return await db.QueryAsync<CategoryAttributeTemplate>(sql, new { CategoryId = categoryId });
@@ -134,21 +154,26 @@ namespace DecorLed.Api.Repositories
                 {
                     try
                     {
+                        
                         var updateProductSql = @"
                             UPDATE products 
-                            SET ProductName = @ProductName, Description = @Description, Price = @Price, StockQuantity = @StockQuantity, CategoryId = @CategoryId
-                            WHERE Id = @Id;";
+                            SET productname = @ProductName, 
+                                description = @Description, 
+                                price = @Price, 
+                                stockquantity = @StockQuantity, 
+                                categoryid = @CategoryId,
+                                image_url = @ImageUrl
+                            WHERE id = @Id;";
 
                         await db.ExecuteAsync(updateProductSql, product, transaction);
 
-                        // Eski özellikleri temizle ve yenileri ekle (Dinamik formlarda en temiz ve bug-free yöntem budur)
-                        var deleteOldAttributesSql = "DELETE FROM productattributes WHERE ProductId = @Id;";
+                        var deleteOldAttributesSql = "DELETE FROM productattributes WHERE productid = @Id;";
                         await db.ExecuteAsync(deleteOldAttributesSql, new { Id = product.Id }, transaction);
 
                         if (product.Attributes != null && product.Attributes.Any())
                         {
                             var insertNewAttributesSql = @"
-                                INSERT INTO productattributes (ProductId, AttributeName, AttributeValue)
+                                INSERT INTO productattributes (productid, attributename, attributevalue)
                                 VALUES (@ProductId, @AttributeName, @AttributeValue);";
 
                             foreach (var attr in product.Attributes)
@@ -186,7 +211,6 @@ namespace DecorLed.Api.Repositories
                 }
             }
 
-            // 🔥 FIX: İsim kontrolü yaparken başındaki ve sonundaki boşlukları hem veritabanında hem gelen veride temizliyoruz (TRIM)
             var trimmedCategoryName = dto.CategoryName?.Trim();
 
             using (IDbConnection db = new NpgsqlConnection(_connectionString))
@@ -242,7 +266,7 @@ namespace DecorLed.Api.Repositories
 
         public async Task<bool> DeleteCategoryAsync(int id)
         {
-            var sql = "DELETE FROM categories WHERE Id = @Id;";
+            var sql = "DELETE FROM categories WHERE id = @Id;";
 
             using (IDbConnection db = new NpgsqlConnection(_connectionString))
             {
@@ -251,10 +275,8 @@ namespace DecorLed.Api.Repositories
                     var affectedRows = await db.ExecuteAsync(sql, new { Id = id });
                     return affectedRows > 0;
                 }
-                // 💡 SİHİRLİ DOKUNUŞ: PostgreSQL'e özel hata yakalama
                 catch (PostgresException ex) when (ex.SqlState == "23503")
                 {
-                    // Veri tabanı "İlişkili veri var!" dediğinde bu hata kodu (23503) tetiklenir.
                     throw new Exception("Bu kategoriye bağlı ürünler bulunmaktadır. Kategori silinemedi! Lütfen önce ürünleri başka bir kategoriye taşıyın veya silin.");
                 }
                 catch (Exception ex)

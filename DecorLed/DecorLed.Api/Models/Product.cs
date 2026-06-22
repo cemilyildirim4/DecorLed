@@ -10,6 +10,8 @@
         public int StockQuantity { get; set; }
         public DateTime CreateDate  { get; set; }
 
+        public string? ImageUrl { get; set; }   
+
         public List<ProductAttribute> Attributes { get; set; } = new();
     }
 }

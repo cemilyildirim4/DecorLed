@@ -1,18 +1,22 @@
 import { useState, useEffect } from 'react';
-import api from '../services/api'; 
+// 🌟 Named export olduğu için süslü parantez ile import edildi
+import api, { uploadImage } from '../services/api'; 
 import toast from 'react-hot-toast'; 
-import { useTheme } from '../context/ThemeContext'; // Yol değişti (üst klasöre çıkıldı)
+import { useTheme } from '../context/ThemeContext'; 
 import Navbar from '../components/Navbar';
 import SidebarForm from '../components/SidebarForm';
 import ProductCard from '../components/ProductCard';
 import { useAuth } from '../context/AuthContext';
 import SessionTimeoutHandler from '../components/SessionTimeoutHandler';
+import Swal from 'sweetalert2';
 
 export default function AdminDashboard() {
   const { darkMode, theme } = useTheme(); 
   const { logout } = useAuth(); 
   
   // --- STATE'LER ---
+  const [selectedFile, setSelectedFile] = useState(null); 
+  const [imagePreview, setImagePreview] = useState(null); 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -33,6 +37,141 @@ export default function AdminDashboard() {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newAttributeNames, setNewAttributeNames] = useState(['', '']); 
 
+  // --- 1. HANDLER: Formu ve Resimleri Sıfırlama ---
+  const handleCancelEdit = () => {
+    setEditingProductId(null);
+    setProductName('');
+    setDescription('');
+    setPrice('');
+    setStockQuantity('');
+    setSelectedCategoryId('');
+    setDynamicAttributes([]);
+    setSelectedFile(null);
+    setImagePreview(null);
+    toast.dismiss();
+  };
+
+  // --- 2. HANDLER: Kategori Seçildiğinde API'den Dinamik Şablonu Çekme ---
+  const handleCategoryChange = async (categoryId) => {
+    setSelectedCategoryId(categoryId); 
+
+    if (!categoryId) {
+      setDynamicAttributes([]);
+      return;
+    }
+
+    try {
+      const res = await api.get(`/products/categories/${categoryId}/attributes`);
+      const formattedAttributes = res.data.map(attr => ({
+        attributeName: typeof attr === 'object' ? (attr.attributeName || attr.name) : attr,
+        attributeValue: '' 
+      }));
+      setDynamicAttributes(formattedAttributes);
+    } catch (err) {
+      console.error("Dinamik şablon özellikleri merkezden çekilemedi:", err);
+      toast.error("Kategori şablonu yüklenirken sunucu hatası oluştu! ❌");
+    }
+  };
+
+  // --- 3. HANDLER: Ürün Ekleme ve Güncelleme ---
+// --- 3. HANDLER: Ürün Ekleme ve Güncelleme ---
+  const handleProductSubmit = async (e) => {
+    e.preventDefault();
+    if (!productName || !price || !stockQuantity || !selectedCategoryId) {
+      toast.error("Lütfen zorunlu alanları doldurun! ⚠️");
+      return;
+    }
+
+    setFormLoading(true);
+
+    try {
+      let uploadedImageUrl = '';
+      
+      if (editingProductId) {
+        uploadedImageUrl = imagePreview ? imagePreview : '';
+      }
+
+      if (selectedFile) {
+        uploadedImageUrl = await uploadImage(selectedFile); 
+      }
+
+      const filteredAttributes = dynamicAttributes.filter(attr => attr.attributeName.trim() !== '');
+
+      const productData = {
+        productName: productName,
+        description: description,
+        price: parseFloat(price),
+        stockQuantity: parseInt(stockQuantity),
+        categoryId: parseInt(selectedCategoryId),
+        imageUrl: uploadedImageUrl, 
+        attributes: filteredAttributes
+      };
+
+      if (editingProductId) {
+        await api.put(`/products/${editingProductId}`, productData);
+        
+        // 🌟 DÜZELTME: Düzenleme için şık bir animasyonlu modal
+        Swal.fire({
+          title: 'Güncelleme Başarılı! ⚡',
+          text: `"${productName}" konfigürasyonu başarıyla güncellendi.`,
+          icon: 'success',
+          timer: 2000, // 2 saniye sonra otomatik kapanır
+          showConfirmButton: false,
+          background: theme.cardBg,
+          color: theme.textMain,
+          iconColor: theme.accent || '#4f46e5'
+        });
+
+      } else {
+        await api.post('/products', productData);
+        
+        // 🌟 DÜZELTME: Yeni ürün ekleme için havai fişek etkili animasyonlu modal
+        Swal.fire({
+          title: 'Envantere Enjekte Edildi! 🎉',
+          text: `"${productName}" sisteme başarıyla eklendi.`,
+          icon: 'success',
+          timer: 2200, // Animasyonun tadını çıkarmak için ideal süre
+          showConfirmButton: false,
+          background: theme.cardBg,
+          color: theme.textMain,
+          iconColor: '#10b981' // Canlı yeşil başarı rengi
+        });
+      }
+
+      handleCancelEdit(); 
+      initPage(); // Listeyi yenile
+
+    } catch (err) {
+      console.error(err);
+      if (err.response && err.response.data) {
+        toast.error(err.response.data.message || err.response.data);
+      } else {
+        toast.error("İşlem sırasında bir hata oluştu. ❌");
+      }
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  // --- 4. HANDLER: Düzenle Butonuna Tıklanınca Formu Doldurma ---
+  const handleProductEditClick = (product) => {
+    setEditingProductId(product.id);
+    setProductName(product.productName);
+    setDescription(product.description || '');
+    setPrice(product.price.toString());
+    setStockQuantity(product.stockQuantity.toString());
+    setSelectedCategoryId(product.categoryId.toString());
+    setDynamicAttributes(product.attributes || []);
+    
+    if (product.imageUrl) {
+      setImagePreview(product.imageUrl);
+    } else {
+      setImagePreview(null);
+    }
+    setSelectedFile(null); 
+  };
+
+  // --- 5. HANDLER: Sayfa İlk Açıldığında Verileri Çekme ---
   const initPage = async () => {
     try {
       const [productsRes, categoriesRes] = await Promise.all([
@@ -58,20 +197,140 @@ export default function AdminDashboard() {
     initPage();
   }, []);
 
-  // --- BURAYA SENİN APPMİZDEKİ TÜM HANDLER FONKSİYONLARINI KOYUYORSUN ---
-  // (handleCategoryChange, handleProductSubmit, handleProductDelete vb. kodlarının tamamı aynen burada duracak)
-  const handleCategoryChange = async (categoryId) => { /* senin kodların */ };
-  const handleDynamicAttributeValueChange = (index, value) => { /* senin kodların */ };
-  const handleProductEditClick = (product) => { /* senin kodların */ };
-  const handleCancelEdit = () => { /* senin kodların */ };
-  const handleProductSubmit = (e) => { /* senin kodların */ };
-  const handleAddAttributeField = () => { /* senin kodların */ };
-  const handleAttributeFieldNameChange = (index, value) => { /* senin kodların */ };
-  const handleRemoveAttributeField = (index) => { /* senin kodların */ };
-  const handleCategorySubmit = (e) => { /* senin kodların */ };
-  const handleProductDelete = (id, name) => { /* senin kodların */ };
-  const handleCategoryDelete = (id, name) => { /* senin kodların */ };
+  // --- 6. HANDLER: Ürün Silme Fonksiyonu ---
+  const handleProductDelete = (id, name) => {
+    Swal.fire({
+      title: 'Emin misiniz?',
+      text: `"${name}" isimli donanım envanterden tamamen imha edilecektir!`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',  
+      confirmButtonText: 'Evet, Envanterden Sil!',
+      cancelButtonText: 'Vazgeç',
+      background: theme.cardBg, 
+      color: theme.textMain
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          await api.delete(`/products/${id}`);
+          
+          Swal.fire({
+            title: 'İmha Edildi!',
+            text: 'Donanım konfigürasyonu başarıyla silindi.',
+            icon: 'success',
+            confirmButtonColor: theme.accent
+          });
 
+          initPage(); 
+        } catch (err) {
+          console.error("Silme hatası:", err);
+          Swal.fire(
+            'Hata!',
+            err.response?.data?.message || 'Ürün silinirken merkez sunucuda bir hata oluştu.',
+            'error'
+          );
+        }
+      }
+    });
+  };
+
+  const handleDynamicAttributeValueChange = (index, value) => {
+    const updated = [...dynamicAttributes];
+    updated[index].attributeValue = value;
+    setDynamicAttributes(updated);
+  };
+  
+  // --- 🌟 DÜZELTİLEN ALAN: KATEGORİ & TEKNİK ŞABLON FONKSİYONLARI 🌟 ---
+  
+  // ➕ Yeni Özellik Alanı Ekleme
+  const handleAddAttributeField = () => {
+    setNewAttributeNames([...newAttributeNames, '']);
+  };
+
+  // ✍️ Özellik Kutularının İçine Yazma Kontrolü
+  const handleAttributeFieldNameChange = (index, value) => {
+    const updated = [...newAttributeNames];
+    updated[index] = value;
+    setNewAttributeNames(updated);
+  };
+
+  // ✕ Özellik Kutusunu Listeden Silme
+  const handleRemoveAttributeField = (index) => {
+    const updated = newAttributeNames.filter((_, i) => i !== index);
+    setNewAttributeNames(updated);
+  };
+
+  // 💾 Yeni Şablonu & Kategoriyi API Sunucusuna Kaydetme
+  const handleCategorySubmit = async (e) => {
+    e.preventDefault();
+    if (!newCategoryName.trim()) {
+      toast.error("Lütfen kategori adını boş bırakmayın! ⚠️");
+      return;
+    }
+
+    // Boş bırakılan teknik şablon başlıklarını temizle
+    const filteredAttributes = newAttributeNames.filter(name => name.trim() !== '');
+
+    setFormLoading(true);
+    try {
+      const payload = {
+        categoryName: newCategoryName,
+        attributeNames: filteredAttributes
+      };
+
+      await api.post('/products/categories', payload);
+      toast.success("Yeni teknik şablon başarıyla sisteme mühürlendi! 📂");
+      
+      // Formu temizle
+      setNewCategoryName('');
+      setNewAttributeNames(['', '']);
+      initPage(); // Listeyi ve selectbox elementlerini tazele
+    } catch (err) {
+      console.error("Şablon kayıt hatası:", err);
+      toast.error(err.response?.data?.message || "Şablon kaydedilirken sunucu hatası oluştu. ❌");
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  // 🗑️ Mevcut Kategoriyi & Şablonu Sistemden Kaldırma
+  const handleCategoryDelete = (id, name) => {
+    Swal.fire({
+      title: 'Kategoriyi Sil?',
+      text: `"${name}" kategorisi ve bu kategoriye bağlı tüm teknik şablon mimarisi silinecektir!`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Evet, Sil!',
+      cancelButtonText: 'Vazgeç',
+      background: theme.cardBg,
+      color: theme.textMain
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          await api.delete(`/products/categories/${id}`);
+          Swal.fire({
+            title: 'Kaldırıldı!',
+            text: 'Kategori mimarisi başarıyla silindi.',
+            icon: 'success',
+            confirmButtonColor: theme.accent
+          });
+          initPage(); // Listeyi güncelle
+        } catch (err) {
+          console.error("Kategori silme hatası:", err);
+          Swal.fire(
+            'Hata!',
+            err.response?.data?.message || 'Kategori silinirken merkez sunucuda bir hata oluştu.',
+            'error'
+          );
+        }
+      }
+    });
+  };
+
+  // --- FİLTRELEME MANTIĞI ---
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           (product.description && product.description.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -96,6 +355,8 @@ export default function AdminDashboard() {
 
         <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '30px', padding: '30px 40px', width: '100%', boxSizing: 'border-box' }}>
           <SidebarForm 
+            selectedFile={selectedFile} setSelectedFile={setSelectedFile}
+            imagePreview={imagePreview} setImagePreview={setImagePreview}
             activeTab={activeTab} setActiveTab={setActiveTab} editingProductId={editingProductId}
             selectedCategoryId={selectedCategoryId} handleCategoryChange={handleCategoryChange}
             categories={categories} productName={productName} setProductName={setProductName}
@@ -114,16 +375,15 @@ export default function AdminDashboard() {
               <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: theme.textMain }}>📦 Aktif Donanım Havuzu</h3>
             </div>
 
-            {/* Arama ve Filtreleme Barları */}
             <div style={{ display: 'flex', gap: '15px', marginBottom: '25px', backgroundColor: theme.cardBg, padding: '15px', borderRadius: '12px', border: `1px solid ${theme.border}` }}>
               <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="🔍 Ürün adı veya sistem notlarında ara..." style={{ flex: 3, padding: '12px 15px', borderRadius: '8px', backgroundColor: theme.bodyBg, border: `1px solid ${theme.border}`, color: theme.textMain }} />
               <select value={filterCategoryId} onChange={(e) => setFilterCategoryId(e.target.value)} style={{ flex: 1, padding: '12px', borderRadius: '8px', backgroundColor: theme.bodyBg, border: `1px solid ${theme.border}`, color: theme.textMain }}>
+                <option value="">🌐 Tüm Kategoriler</option>
                 <option value="">🌐 Tüm Kategoriler</option>
                 {categories.map(cat => <option key={cat.id} value={cat.id}>📂 {cat.categoryName}</option>)}
               </select>
             </div>
 
-            {/* Ürün Kartları Listesi */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '20px' }}>
               {filteredProducts.map(product => (
                 <ProductCard key={product.id} product={product} editingProductId={editingProductId} handleProductEditClick={handleProductEditClick} handleProductDelete={handleProductDelete} />

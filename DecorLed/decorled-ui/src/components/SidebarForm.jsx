@@ -1,4 +1,4 @@
-import { useTheme } from '../context/ThemeContext'; // Önemli: Klasör yolunu kendi yapına göre doğrula (örn: './ThemeContext' de olabilir)
+import { useTheme } from '../context/ThemeContext';
 
 export default function SidebarForm({
   activeTab,
@@ -27,10 +27,31 @@ export default function SidebarForm({
   handleAttributeFieldNameChange,
   handleRemoveAttributeField,
   handleCategorySubmit,
-  handleCategoryDelete
+  handleCategoryDelete,
+  // 🌟 Yeni Eklenen Görsel Propları
+  selectedFile,
+  setSelectedFile,
+  imagePreview,
+  setImagePreview
 }) {
   // Tema verilerini ve karanlık mod durumunu merkezi Context uydusundan çekiyoruz
   const { darkMode, theme } = useTheme();
+
+  // 📸 Yerel Dosya Seçim Kontrolcüsü
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+      // Seçilen yerel dosyayı tarayıcının görebileceği geçici bir önizleme linkine çeviriyoruz
+      setImagePreview(URL.createObjectURL(file)); 
+    }
+  };
+
+  // 🗑️ Seçilen Görseli İptal Etme Kontrolcüsü
+  const handleRemoveImage = () => {
+    setSelectedFile(null);
+    setImagePreview(null);
+  };
 
   return (
     <div style={{ boxSizing: 'border-box' }}>
@@ -52,12 +73,14 @@ export default function SidebarForm({
         {/* SEKME BUTONLARI */}
         <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', borderBottom: `2px solid ${theme.border}`, paddingBottom: '12px' }}>
           <button 
+            type="button"
             onClick={() => setActiveTab('product')} 
             style={{ flex: 1, padding: '10px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '800', fontSize: '11px', backgroundColor: activeTab === 'product' ? theme.accent : (darkMode ? '#334155' : '#e2e8f0'), color: activeTab === 'product' ? '#fff' : theme.textMain, transition: 'all 0.2s' }}
           >
             📦 ÜRÜN İŞLEMLERİ
           </button>
           <button 
+            type="button"
             onClick={() => setActiveTab('category')} 
             style={{ flex: 1, padding: '10px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '800', fontSize: '11px', backgroundColor: activeTab === 'category' ? '#0284c7' : (darkMode ? '#334155' : '#e2e8f0'), color: activeTab === 'category' ? '#fff' : theme.textMain, transition: 'all 0.2s' }}
           >
@@ -90,7 +113,7 @@ export default function SidebarForm({
               <textarea value={description} onChange={(e) => setDescription(e.target.value)} style={{ width: '100%', padding: '11px', borderRadius: '8px', backgroundColor: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.textMain, height: '60px', boxSizing: 'border-box', resize: 'none' }} placeholder="Modül veya pin konfigürasyonları..."/>
             </div>
 
-            <div style={{ display: 'flex', gap: '15px', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', gap: '15px', marginBottom: '15px' }}>
               <div style={{ flex: 1 }}>
                 <label style={{ display: 'block', marginBottom: '6px', fontSize: '11px', fontWeight: '800', color: theme.textMuted, textTransform: 'uppercase' }}>Fiyat (TL)</label>
                 <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} style={{ width: '100%', padding: '11px', borderRadius: '8px', backgroundColor: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.success, fontWeight: '800', boxSizing: 'border-box' }}/>
@@ -99,6 +122,61 @@ export default function SidebarForm({
                 <label style={{ display: 'block', marginBottom: '6px', fontSize: '11px', fontWeight: '800', color: theme.textMuted, textTransform: 'uppercase' }}>Stok Havuzu</label>
                 <input type="number" value={stockQuantity} onChange={(e) => setStockQuantity(e.target.value)} style={{ width: '100%', padding: '11px', borderRadius: '8px', backgroundColor: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.textMain, fontWeight: '800', boxSizing: 'border-box' }}/>
               </div>
+            </div>
+
+            {/* 🌟 YENİ GÖRSEL YÜKLEME ALANI (Fiyat/Stok Altına Yerleşti) */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '11px', fontWeight: '800', color: theme.textMuted, textTransform: 'uppercase' }}>
+                🖼️ Donanım Görsel Enjeksiyonu
+              </label>
+              
+              {!imagePreview ? (
+                // Görsel Seçilmemişse: Dashed Dropzone Butonu
+                <label style={{ 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  padding: '20px', 
+                  borderRadius: '10px', 
+                  backgroundColor: theme.inputBg, 
+                  border: `2px dashed ${darkMode ? '#475569' : '#cbd5e1'}`, 
+                  cursor: 'pointer', 
+                  textAlign: 'center',
+                  transition: 'border-color 0.2s'
+                }}>
+                  <span style={{ fontSize: '22px', marginBottom: '4px' }}>📸</span>
+                  <span style={{ fontSize: '12px', fontWeight: '800', color: theme.textMain }}>Görsel Seçin</span>
+                  <span style={{ fontSize: '10px', color: theme.textMuted, marginTop: '2px' }}>PNG, JPG, JPEG</span>
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    onChange={handleFileChange} 
+                    style={{ display: 'none' }} 
+                  />
+                </label>
+              ) : (
+                // Görsel Seçilmişse: Önizleme Kutusu ve Kaldırma Butonu
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', backgroundColor: theme.bodyBg, padding: '10px', borderRadius: '10px', border: `1px solid ${theme.border}` }}>
+                  <img 
+                    src={imagePreview} 
+                    alt="Önizleme" 
+                    style={{ width: '55px', height: '55px', objectFit: 'cover', borderRadius: '8px', border: `1px solid ${theme.border}` }} 
+                  />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: '12px', fontWeight: '700', color: theme.textMain, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {selectedFile ? selectedFile.name : "Kayıtlı Görsel Dosyası"}
+                    </p>
+                    <button 
+                      type="button" 
+                      onClick={handleRemoveImage} 
+                      style={{ background: 'none', border: 'none', color: theme.danger, padding: 0, fontSize: '11px', fontWeight: '800', cursor: 'pointer', marginTop: '4px' }}
+                    >
+                      Görseli Kaldır 🗑️
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {dynamicAttributes.length > 0 && (

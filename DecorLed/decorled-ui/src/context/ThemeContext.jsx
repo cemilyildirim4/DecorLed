@@ -21,7 +21,7 @@ export function ThemeProvider({ children }) { // <-- Burası export olmalı
 
   useEffect(() => {
     document.body.style.backgroundColor = theme.bodyBg;
-  }, [darkMode]);
+  }, [darkMode, theme.bodyBg]);
 
   return (
     <ThemeContext.Provider value={{ darkMode, setDarkMode, theme }}>
