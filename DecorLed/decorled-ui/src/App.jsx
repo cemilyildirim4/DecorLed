@@ -7,8 +7,9 @@ import Login from './components/Login';
 // Sayfalarımız
 import Home from './pages/Home';
 import AdminDashboard from './pages/AdminDashboard';
+import Cart from './pages/Cart'; // 🛒 Yeni sepet sayfamızı içeri aktardık
 
-// 🛡️ Özel Güvenlik Bileşeni: Giriş yapmayanları korumalı yollardan (Admin gibi) Login'e fırlatır
+// 🛡️ Özel Güvenlik Bileşeni: Giriş yapmayanları korumalı yollardan Login'e fırlatır
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
   
@@ -47,14 +48,21 @@ function App() {
         {/* 2. Login Sayfası (Eğer zaten giriş yapılmışsa direkt admin'e yönlendir) */}
         <Route path="/login" element={isAuthenticated ? <Navigate to="/admin" replace /> : <Login />} />
 
-        {/* 3. Korunan Admin Paneli (Sadece giriş yapmış yetkili görebilir) */}
+        {/* 3. Korunan Admin Paneli */}
         <Route path="/admin" element={
           <ProtectedRoute>
             <AdminDashboard />
           </ProtectedRoute>
         } />
 
-        {/* 4. Yanlış URL girilirse ana sayfaya fırlat */}
+        {/* 4. 🛒 Korunan Sepet Sayfası (Giriş yapmayan göremez) */}
+        <Route path="/sepet" element={
+          <ProtectedRoute>
+            <Cart />
+          </ProtectedRoute>
+        } />
+
+        {/* 5. Yanlış URL girilirse ana sayfaya fırlat */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>

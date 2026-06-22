@@ -7,7 +7,7 @@ using DecorLed.Api.Models;
 using DecorLed.Api.Repositories;
 using BCrypt.Net;
 using Microsoft.Extensions.Configuration;
-using Microsoft.AspNetCore.Authorization; // 🌟 YENİ: [Authorize] özelliğini kullanabilmek için ekledik
+using Microsoft.AspNetCore.Authorization;
 
 namespace DecorLed.Api.Controllers
 {
@@ -38,14 +38,12 @@ namespace DecorLed.Api.Controllers
                 }
                 catch
                 {
-                    // ignore verify exceptions, treat as invalid credentials
                     isPasswordCorrect = false;
                 }
 
                 if (isPasswordCorrect)
                 {
                     var tokenHandler = new JwtSecurityTokenHandler();
-
                     var secretKey = _configuration["JwtSettings:SecretKey"];
 
                     if (string.IsNullOrEmpty(secretKey) || secretKey.Length < 32)
@@ -58,6 +56,10 @@ namespace DecorLed.Api.Controllers
                     var tokenDescriptor = new SecurityTokenDescriptor
                     {
                         Subject = new ClaimsIdentity(new[] {
+                            // 🚨 KRİTİK DÜZELTME: Kullanıcı ID bilgisini token içine gömüyoruz.
+                            // (Eğer modelinde ID alanı küçük harfle 'id' ise 'dbUser.id' yapabilirsin)
+                            new Claim(ClaimTypes.NameIdentifier, dbUser.Id.ToString()),
+
                             new Claim(ClaimTypes.Name, dbUser.Username),
                             new Claim(ClaimTypes.Role, dbUser.Role ?? "admin")
                         }),
@@ -73,12 +75,10 @@ namespace DecorLed.Api.Controllers
             return Unauthorized(new { message = "Kullanıcı adı veya şifre hatalı!" });
         }
 
-        // 🛡️ 🌟 YENİ EKLENEN ENDPOINT: Sayfa yenilendiğinde token doğrulaması yapar
         [Authorize]
         [HttpGet("me")]
         public IActionResult GetCurrentUser()
         {
-            // Login olurken ClaimTypes.Name içine kaydettiğimiz Username bilgisini token'dan geri okuyoruz
             var username = User.Identity?.Name ?? User.FindFirst(ClaimTypes.Name)?.Value;
 
             if (string.IsNullOrEmpty(username))
@@ -86,7 +86,6 @@ namespace DecorLed.Api.Controllers
                 return Unauthorized(new { message = "Kullanıcı bilgileri doğrulanamadı." });
             }
 
-            // Frontend tarafındaki AuthContext.jsx'in beklediği nesneyi dönüyoruz
             return Ok(new { username });
         }
     }
