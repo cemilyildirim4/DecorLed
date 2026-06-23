@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
-// 🌟 Named export olduğu için süslü parantez ile import edildi
 import api, { uploadImage } from '../services/api'; 
 import toast from 'react-hot-toast'; 
 import { useTheme } from '../context/ThemeContext'; 
-import Navbar from '../components/Navbar';
 import SidebarForm from '../components/SidebarForm';
 import ProductCard from '../components/ProductCard';
 import { useAuth } from '../context/AuthContext';
@@ -74,7 +72,6 @@ export default function AdminDashboard() {
   };
 
   // --- 3. HANDLER: Ürün Ekleme ve Güncelleme ---
-// --- 3. HANDLER: Ürün Ekleme ve Güncelleme ---
   const handleProductSubmit = async (e) => {
     e.preventDefault();
     if (!productName || !price || !stockQuantity || !selectedCategoryId) {
@@ -110,12 +107,11 @@ export default function AdminDashboard() {
       if (editingProductId) {
         await api.put(`/products/${editingProductId}`, productData);
         
-        // 🌟 DÜZELTME: Düzenleme için şık bir animasyonlu modal
         Swal.fire({
           title: 'Güncelleme Başarılı! ⚡',
           text: `"${productName}" konfigürasyonu başarıyla güncellendi.`,
           icon: 'success',
-          timer: 2000, // 2 saniye sonra otomatik kapanır
+          timer: 2000,
           showConfirmButton: false,
           background: theme.cardBg,
           color: theme.textMain,
@@ -125,21 +121,20 @@ export default function AdminDashboard() {
       } else {
         await api.post('/products', productData);
         
-        // 🌟 DÜZELTME: Yeni ürün ekleme için havai fişek etkili animasyonlu modal
         Swal.fire({
           title: 'Envantere Enjekte Edildi! 🎉',
           text: `"${productName}" sisteme başarıyla eklendi.`,
           icon: 'success',
-          timer: 2200, // Animasyonun tadını çıkarmak için ideal süre
+          timer: 2200,
           showConfirmButton: false,
           background: theme.cardBg,
           color: theme.textMain,
-          iconColor: '#10b981' // Canlı yeşil başarı rengi
+          iconColor: '#10b981'
         });
       }
 
       handleCancelEdit(); 
-      initPage(); // Listeyi yenile
+      initPage(); 
 
     } catch (err) {
       console.error(err);
@@ -179,7 +174,7 @@ export default function AdminDashboard() {
         api.get('/products/categories')
       ]);
       setProducts(productsRes.data);
-      setCategories(categoriesRes.data);
+      categoriesRes.data && setCategories(categoriesRes.data);
       setLoading(false);
     } catch (err) {
       setLoading(false);
@@ -241,27 +236,21 @@ export default function AdminDashboard() {
     setDynamicAttributes(updated);
   };
   
-  // --- 🌟 DÜZELTİLEN ALAN: KATEGORİ & TEKNİK ŞABLON FONKSİYONLARI 🌟 ---
-  
-  // ➕ Yeni Özellik Alanı Ekleme
   const handleAddAttributeField = () => {
     setNewAttributeNames([...newAttributeNames, '']);
   };
 
-  // ✍️ Özellik Kutularının İçine Yazma Kontrolü
   const handleAttributeFieldNameChange = (index, value) => {
     const updated = [...newAttributeNames];
     updated[index] = value;
     setNewAttributeNames(updated);
   };
 
-  // ✕ Özellik Kutusunu Listeden Silme
   const handleRemoveAttributeField = (index) => {
     const updated = newAttributeNames.filter((_, i) => i !== index);
     setNewAttributeNames(updated);
   };
 
-  // 💾 Yeni Şablonu & Kategoriyi API Sunucusuna Kaydetme
   const handleCategorySubmit = async (e) => {
     e.preventDefault();
     if (!newCategoryName.trim()) {
@@ -269,7 +258,6 @@ export default function AdminDashboard() {
       return;
     }
 
-    // Boş bırakılan teknik şablon başlıklarını temizle
     const filteredAttributes = newAttributeNames.filter(name => name.trim() !== '');
 
     setFormLoading(true);
@@ -282,10 +270,9 @@ export default function AdminDashboard() {
       await api.post('/products/categories', payload);
       toast.success("Yeni teknik şablon başarıyla sisteme mühürlendi! 📂");
       
-      // Formu temizle
       setNewCategoryName('');
       setNewAttributeNames(['', '']);
-      initPage(); // Listeyi ve selectbox elementlerini tazele
+      initPage(); 
     } catch (err) {
       console.error("Şablon kayıt hatası:", err);
       toast.error(err.response?.data?.message || "Şablon kaydedilirken sunucu hatası oluştu. ❌");
@@ -294,7 +281,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // 🗑️ Mevcut Kategoriyi & Şablonu Sistemden Kaldırma
   const handleCategoryDelete = (id, name) => {
     Swal.fire({
       title: 'Kategoriyi Sil?',
@@ -317,7 +303,7 @@ export default function AdminDashboard() {
             icon: 'success',
             confirmButtonColor: theme.accent
           });
-          initPage(); // Listeyi güncelle
+          initPage(); 
         } catch (err) {
           console.error("Kategori silme hatası:", err);
           Swal.fire(
@@ -330,7 +316,6 @@ export default function AdminDashboard() {
     });
   };
 
-  // --- FİLTRELEME MANTIĞI ---
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           (product.description && product.description.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -351,7 +336,7 @@ export default function AdminDashboard() {
           .custom-scrollbar::-webkit-scrollbar-thumb { background: ${darkMode ? '#475569' : '#cbd5e1'}; border-radius: 4px; }
         `}</style>
 
-        <Navbar />
+        {/* 🌟 ARTIK BURADA MANUEL NAVBAR YOK! GLOBAL NAVBAR YUKARIDA ÇALIŞIYOR */}
 
         <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '30px', padding: '30px 40px', width: '100%', boxSizing: 'border-box' }}>
           <SidebarForm 
@@ -378,7 +363,6 @@ export default function AdminDashboard() {
             <div style={{ display: 'flex', gap: '15px', marginBottom: '25px', backgroundColor: theme.cardBg, padding: '15px', borderRadius: '12px', border: `1px solid ${theme.border}` }}>
               <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="🔍 Ürün adı veya sistem notlarında ara..." style={{ flex: 3, padding: '12px 15px', borderRadius: '8px', backgroundColor: theme.bodyBg, border: `1px solid ${theme.border}`, color: theme.textMain }} />
               <select value={filterCategoryId} onChange={(e) => setFilterCategoryId(e.target.value)} style={{ flex: 1, padding: '12px', borderRadius: '8px', backgroundColor: theme.bodyBg, border: `1px solid ${theme.border}`, color: theme.textMain }}>
-                <option value="">🌐 Tüm Kategoriler</option>
                 <option value="">🌐 Tüm Kategoriler</option>
                 {categories.map(cat => <option key={cat.id} value={cat.id}>📂 {cat.categoryName}</option>)}
               </select>

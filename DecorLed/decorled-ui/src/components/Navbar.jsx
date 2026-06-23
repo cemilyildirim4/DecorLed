@@ -1,19 +1,41 @@
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext'; 
 import { useAuth } from '../context/AuthContext';
-// 🌟 Lucide ikon kütüphanesini kullanmaya devam ediyoruz
-import { Lightbulb, User, LogOut, Sun, Moon, Activity } from 'lucide-react';
+import { cartService } from '../services/api';
+
+// 🌟 Menü geçişleri ve sepet için yeni ikonlar eklendi
+import { Lightbulb, User, LogOut, Sun, Moon, Activity, ShoppingCart, Package, Store } from 'lucide-react';
 
 export default function Navbar() {
   const { darkMode, setDarkMode, theme } = useTheme();
   const { logout, user } = useAuth(); 
+  const navigate = useNavigate();
+  const [cartCount, setCartCount] = useState(0);
 
   const transitionStyle = 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)';
-
-  // 🎨 KONTRAST DÜZELTMESİ: Navbar arka planı hep koyu olduğu için 
-  // yazıları ve ikonları her iki temada da güvenli/açık renklerde tutuyoruz.
   const textMainColor = '#ffffff'; 
-  const textMutedColor = darkMode ? '#94a3b8' : '#e0e7ff'; // Orijinal alt başlık renklerin
+  const textMutedColor = darkMode ? '#94a3b8' : '#e0e7ff'; 
   const navbarBorderColor = 'rgba(255, 255, 255, 0.15)';
+
+  // 🔄 Sepetteki anlık ürün çeşidi sayısını backend'den çekelim
+  useEffect(() => {
+    const fetchCartCount = async () => {
+      if (!user) return; // Giriş yapılmadıysa sorgu atma
+      try {
+        const cartItems = await cartService.getCart();
+        setCartCount(cartItems.length);
+      } catch (error) {
+        console.error("Sepet adedi güncellenirken hata:", error);
+      }
+    };
+
+    fetchCartCount();
+    
+    // Sepete ekleme/çıkarma yapıldığında tetiklenecek canlı dinleyici
+    window.addEventListener('cartUpdated', fetchCartCount);
+    return () => window.removeEventListener('cartUpdated', fetchCartCount);
+  }, [user]);
 
   return (
     <div style={{ 
@@ -28,7 +50,7 @@ export default function Navbar() {
       zIndex: 50,
       backdropFilter: 'blur(8px)'
     }}>
-      {/* 🚀 Canlı Pulsing (Yanıp Sönen) API Noktası Animasyonu */}
+      {/* 🚀 Canlı Animasyonlar ve Global Link Tasarımları */}
       <style>{`
         @keyframes apiPulse {
           0% { transform: scale(0.9); opacity: 0.6; }
@@ -37,6 +59,25 @@ export default function Navbar() {
         }
         .pulse-dot {
           animation: apiPulse 2s infinite ease-in-out;
+        }
+        .nav-menu-link {
+          color: #ffffff;
+          text-decoration: none;
+          font-size: 13px;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 14px;
+          border-radius: 20px;
+          background-color: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .nav-menu-link:hover {
+          transform: translateY(-1px);
+          background-color: rgba(255, 255, 255, 0.12);
+          border-color: rgba(255, 255, 255, 0.2);
         }
       `}</style>
 
@@ -51,7 +92,6 @@ export default function Navbar() {
           justifyContent: 'center',
           border: '1px solid rgba(255, 255, 255, 0.2)'
         }}>
-          {/* İkon rengi koyu arka planda parlasın diye sabitlendi */}
           <Lightbulb size={22} color="#f59e0b" />
         </div>
         <div>
@@ -76,6 +116,46 @@ export default function Navbar() {
         </div>
       </div>
 
+      {/* 🧭 ORTA KISIM: Dinamik Navigasyon Köprüleri */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <Link to="/" className="nav-menu-link">
+          <Store size={14} style={{ opacity: 0.9 }} />
+          Vitrin
+        </Link>
+
+        {user && (
+          <>
+            <Link to="/siparislerim" className="nav-menu-link">
+              <Package size={14} style={{ opacity: 0.9 }} />
+              Siparişlerim
+            </Link>
+
+            {/* 🛒 Canlı Bildirim Rozetli Sepet Butonu */}
+            <Link to="/sepet" className="nav-menu-link" style={{ position: 'relative', paddingRight: cartCount > 0 ? '34px' : '14px' }}>
+              <ShoppingCart size={14} style={{ opacity: 0.9 }} />
+              Sepetim
+              {cartCount > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  right: '8px',
+                  background: '#ef4444',
+                  color: '#fff',
+                  borderRadius: '10px',
+                  padding: '1px 7px',
+                  fontSize: '10px',
+                  fontWeight: '800',
+                  boxShadow: '0 2px 6px rgba(239, 68, 68, 0.4)',
+                  display: 'inline-block',
+                  lineHeight: '14px'
+                }}>
+                  {cartCount}
+                </span>
+              )}
+            </Link>
+          </>
+        )}
+      </div>
+
       {/* SAĞ KISIM: Kontroller & Profil */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
         
@@ -98,7 +178,7 @@ export default function Navbar() {
           </div>
         )}
 
-        {/* Tema Değiştirme Butonu (Gözü yormayan net kontrast) */}
+        {/* Tema Değiştirme Butonu */}
         <button 
           onClick={() => setDarkMode(!darkMode)} 
           style={{ 
@@ -122,37 +202,43 @@ export default function Navbar() {
           {darkMode ? 'Gündüz' : 'Gece'}
         </button>
 
-        {/* Çıkış Yap Butonu (Koyu arka planda net görünen beyaz çizgi, hover'da soft kırmızı) */}
-        <button 
-          onClick={logout} 
-          style={{ 
-            backgroundColor: 'transparent', 
-            color: textMainColor, 
-            border: `1px solid ${navbarBorderColor}`, 
-            padding: '8px 14px', 
-            borderRadius: '20px', 
-            cursor: 'pointer',
-            fontWeight: '600',
-            fontSize: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            transition: transitionStyle
-          }}
-          onMouseOver={(e) => {
-            e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.2)';
-            e.currentTarget.style.borderColor = '#ef4444';
-            e.currentTarget.style.color = '#ef4444';
-          }}
-          onMouseOut={(e) => {
-            e.currentTarget.style.backgroundColor = 'transparent';
-            e.currentTarget.style.borderColor = navbarBorderColor;
-            e.currentTarget.style.color = textMainColor;
-          }}
-        >
-          <LogOut size={14} />
-          Çıkış Yap
-        </button>
+        {/* Çıkış Yap Butonu */}
+        {user && (
+          <button 
+            onClick={() => {
+              logout();
+              localStorage.removeItem('token');
+              navigate('/login');
+            }} 
+            style={{ 
+              backgroundColor: 'transparent', 
+              color: textMainColor, 
+              border: `1px solid ${navbarBorderColor}`, 
+              padding: '8px 14px', 
+              borderRadius: '20px', 
+              cursor: 'pointer',
+              fontWeight: '600',
+              fontSize: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: transitionStyle
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.2)';
+              e.currentTarget.style.borderColor = '#ef4444';
+              e.currentTarget.style.color = '#ef4444';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+              e.currentTarget.style.borderColor = navbarBorderColor;
+              e.currentTarget.style.color = textMainColor;
+            }}
+          >
+            <LogOut size={14} />
+            Çıkış Yap
+          </button>
+        )}
 
         {/* API Çevrimiçi Göstergesi */}
         <div style={{ 

@@ -3,11 +3,14 @@ import { Toaster } from 'react-hot-toast';
 import { useTheme } from './context/ThemeContext'; 
 import { useAuth } from './context/AuthContext';
 import Login from './components/Login';
+import Navbar from './components/Navbar'; // 🔥 YENİ: Premium üst menümüzü içeri aktardık
 
 // Sayfalarımız
 import Home from './pages/Home';
 import AdminDashboard from './pages/AdminDashboard';
-import Cart from './pages/Cart'; // 🛒 Yeni sepet sayfamızı içeri aktardık
+import Cart from './pages/Cart'; 
+import MyOrders from './pages/MyOrders';
+import OrderDetails from './pages/OrderDetails';
 
 // 🛡️ Özel Güvenlik Bileşeni: Giriş yapmayanları korumalı yollardan Login'e fırlatır
 function ProtectedRoute({ children }) {
@@ -40,6 +43,9 @@ function App() {
         }}
       />
 
+      {/* 🔥 GLOBAL ÜST MENÜ: Tüm sayfaların yukarısında canlı ve görünür kalması için burada */}
+      <Navbar />
+
       {/* 🧭 ROTA HARİTAMIZ */}
       <Routes>
         {/* 1. Herkese Açık Mağaza Vitrini */}
@@ -55,14 +61,28 @@ function App() {
           </ProtectedRoute>
         } />
 
-        {/* 4. 🛒 Korunan Sepet Sayfası (Giriş yapmayan göremez) */}
+        {/* 4. 🛒 Korunan Sepet Sayfası */}
         <Route path="/sepet" element={
           <ProtectedRoute>
             <Cart />
           </ProtectedRoute>
         } />
 
-        {/* 5. Yanlış URL girilirse ana sayfaya fırlat */}
+        {/* 5. 📦 Korunan Sipariş Geçmişi Sayfası */}
+        <Route path="/siparislerim" element={
+          <ProtectedRoute>
+            <MyOrders />
+          </ProtectedRoute>
+        } />
+
+        {/* 6. 📄 Korunan Sipariş Detay Sayfası */}
+        <Route path="/siparis/:id" element={
+          <ProtectedRoute>
+            <OrderDetails />
+          </ProtectedRoute>
+        } />
+
+        {/* 7. Yanlış URL girilirse ana sayfaya fırlat */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
