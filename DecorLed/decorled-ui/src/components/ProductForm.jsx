@@ -31,9 +31,13 @@ export default function ProductForm() {
 
       // Ürün verilerini hazırlayıp backend'e gönderiyoruz
       const productData = {
-        name: productName,
+        productName,
+        description: '',
         price: parseFloat(price),
-        imageUrl: uploadedImageUrl
+        stockQuantity: 1,
+        categoryId: 1,
+        imageUrl: uploadedImageUrl,
+        attributes: []
       };
 
       await api.post('/products', productData);

@@ -40,11 +40,12 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     {
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(key), // <-- appsettings'ten gelen gerçek key
             ValidateIssuer = false,
             ValidateAudience = false,
-            ClockSkew = TimeSpan.Zero
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(builder.Configuration["JwtSettings:SecretKey"]))
         };
     });
 

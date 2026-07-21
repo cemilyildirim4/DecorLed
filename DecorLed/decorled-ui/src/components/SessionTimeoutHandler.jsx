@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
@@ -14,21 +14,21 @@ export default function SessionTimeoutHandler({ children }) {
   const countdownRef = useRef(null);
 
 // Süre bittiğinde veya çıkışa basıldığında:
-  const handleSessionLogout = () => {
+  const handleSessionLogout = useCallback(() => {
     if (countdownRef.current) clearInterval(countdownRef.current);
     if (timerRef.current) clearTimeout(timerRef.current);
-    
-    logout(); // ⚡ Context'teki logout'u çağırıyoruz; o hem token'ı siliyor hem state'i sıfırlıyor!
-  };
 
-  const resetTimer = () => {
-    if (showWarning) return; 
+    logout();
+  }, [logout]);
+
+  const resetTimer = useCallback(() => {
+    if (showWarning) return;
     if (timerRef.current) clearTimeout(timerRef.current);
 
     timerRef.current = setTimeout(() => {
-      setShowWarning(true); 
+      setShowWarning(true);
     }, INACTIVITY_LIMIT);
-  };
+  }, [showWarning]);
 
   useEffect(() => {
     const events = ['mousemove', 'keydown', 'click', 'scroll'];
@@ -40,27 +40,33 @@ export default function SessionTimeoutHandler({ children }) {
       events.forEach(event => window.removeEventListener(event, resetTimer));
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [showWarning]);
+  }, [resetTimer]);
 
   useEffect(() => {
-    if (showWarning) {
-      setCountdown(60);
-      countdownRef.current = setInterval(() => {
-        setCountdown(prev => {
-          if (prev <= 1) {
-            clearInterval(countdownRef.current);
-            handleSessionLogout(); // 🚨 DEĞİŞİKLİK: Süre bittiğinde güvenli çıkışı çağırıyoruz
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+    if (!showWarning) {
+      return undefined;
     }
 
+    const countdownTimer = window.setTimeout(() => {
+      setCountdown(60);
+    }, 0);
+
+    countdownRef.current = window.setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          window.clearInterval(countdownRef.current);
+          handleSessionLogout();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
     return () => {
-      if (countdownRef.current) clearInterval(countdownRef.current);
+      window.clearTimeout(countdownTimer);
+      if (countdownRef.current) window.clearInterval(countdownRef.current);
     };
-  }, [showWarning]);
+  }, [handleSessionLogout, showWarning]);
 
   const handleStayLoggedIn = () => {
     setShowWarning(false);

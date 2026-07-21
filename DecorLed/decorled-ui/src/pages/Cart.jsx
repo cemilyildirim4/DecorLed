@@ -1,13 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom'; // 🎯 Yönlendirme için eklendi
 import { cartService, orderService } from '../services/api';
-import { useTheme } from '../context/ThemeContext'; // 🔥 Yeni Tema Desteği
+import { useTheme } from '../context/ThemeContext'; 
 import toast from 'react-hot-toast';
 
 const Cart = () => {
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
-  const { theme, darkMode } = useTheme(); // 🔥 Global tema değişkenleri
+  const { theme, darkMode } = useTheme(); 
+  const navigate = useNavigate(); // 🎯 Yönlendirme kancası
 
   const fetchCart = async () => {
     try {
@@ -22,7 +24,18 @@ const Cart = () => {
   };
 
   useEffect(() => {
-    fetchCart();
+    let isMounted = true;
+
+    const loadCart = async () => {
+      await fetchCart();
+      if (!isMounted) return;
+    };
+
+    void loadCart();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const handleRemoveItem = async (productId) => {
@@ -30,7 +43,7 @@ const Cart = () => {
       await cartService.removeFromCart(productId);
       toast.success('Ürün sepetten kaldırıldı.');
       setCartItems(prev => prev.filter(item => item.productId !== productId));
-      window.dispatchEvent(new Event('cartUpdated')); // Navbar rozetini de anlık düşürür
+      window.dispatchEvent(new Event('cartUpdated')); 
     } catch (error) {
       console.error(error);
     }
@@ -52,9 +65,12 @@ const Cart = () => {
     try {
       setCheckoutLoading(true);
       const response = await orderService.checkout();
-      toast.success(response.message || 'Siparişiniz başarıyla alındı! 🎉');
+      toast.success(response.message || 'Siparişiniz başarıyla alındı! 🎉', { duration: 4000 });
       setCartItems([]);
       window.dispatchEvent(new Event('cartUpdated'));
+      
+      // 🎯 Sipariş bittiği gibi kullanıcıyı siparişlerim sayfasına gönderiyoruz
+      navigate('/siparislerim'); 
     } catch (error) {
       console.error(error);
     } finally {
@@ -62,7 +78,7 @@ const Cart = () => {
     }
   };
 
-  const totalAmount = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const totalAmount = cartItems.reduce((sum, item) => sum + ((item.price ?? 0) * (item.quantity ?? 0)), 0);
 
   if (loading) {
     return (

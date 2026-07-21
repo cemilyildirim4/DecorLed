@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import api, { uploadImage } from '../services/api'; 
 import toast from 'react-hot-toast'; 
 import { useTheme } from '../context/ThemeContext'; 
@@ -17,7 +17,6 @@ export default function AdminDashboard() {
   const [imagePreview, setImagePreview] = useState(null); 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [categories, setCategories] = useState([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [dynamicAttributes, setDynamicAttributes] = useState([]);
@@ -167,10 +166,10 @@ export default function AdminDashboard() {
   };
 
   // --- 5. HANDLER: Sayfa İlk Açıldığında Verileri Çekme ---
-  const initPage = async () => {
+  const initPage = useCallback(async () => {
     try {
       const [productsRes, categoriesRes] = await Promise.all([
-        api.get('/products'), 
+        api.get('/products'),
         api.get('/products/categories')
       ]);
       setProducts(productsRes.data);
@@ -182,15 +181,14 @@ export default function AdminDashboard() {
         logout();
         toast.error("Oturum süreniz dolmuş veya geçersiz! 🔑");
       } else {
-        setError("API bağlantısı kurulamadı.");
         toast.error("Merkez API sunucusuna bağlanılamadı! 🔌");
       }
     }
-  };
+  }, [logout]);
 
   useEffect(() => {
-    initPage();
-  }, []);
+    void initPage();
+  }, [initPage]);
 
   // --- 6. HANDLER: Ürün Silme Fonksiyonu ---
   const handleProductDelete = (id, name) => {

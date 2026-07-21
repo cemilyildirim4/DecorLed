@@ -1,11 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext'; 
 import { useAuth } from '../context/AuthContext';
-import { cartService } from '../services/api';
-
-// 🌟 Menü geçişleri ve sepet için yeni ikonlar eklendi
-import { Lightbulb, User, LogOut, Sun, Moon, Activity, ShoppingCart, Package, Store } from 'lucide-react';
+import { cartService, getUserRole } from '../services/api'; // 👈 getUserRole fonksiyonu eklendi
+import { Lightbulb, User, LogOut, Sun, Moon, Activity, ShoppingCart, Package, Store, Shield } from 'lucide-react'; // 👈 Shield ikonu eklendi
 
 export default function Navbar() {
   const { darkMode, setDarkMode, theme } = useTheme();
@@ -18,25 +16,46 @@ export default function Navbar() {
   const textMutedColor = darkMode ? '#94a3b8' : '#e0e7ff'; 
   const navbarBorderColor = 'rgba(255, 255, 255, 0.15)';
 
-  // 🔄 Sepetteki anlık ürün çeşidi sayısını backend'den çekelim
-  useEffect(() => {
-    const fetchCartCount = async () => {
-      if (!user) return; // Giriş yapılmadıysa sorgu atma
-      try {
-        const cartItems = await cartService.getCart();
-        setCartCount(cartItems.length);
-      } catch (error) {
-        console.error("Sepet adedi güncellenirken hata:", error);
-      }
-    };
+  // 🛡️ Kullanıcı Rolünü Tespit Et
+  const role = user?.role || getUserRole();
+  const normalizedRole = typeof role === 'string' ? role.toLowerCase() : '';
+  const isAdmin = normalizedRole === 'admin';
 
-    fetchCartCount();
-    
-    // Sepete ekleme/çıkarma yapıldığında tetiklenecek canlı dinleyici
-    window.addEventListener('cartUpdated', fetchCartCount);
-    return () => window.removeEventListener('cartUpdated', fetchCartCount);
+  const fetchCartCount = useCallback(async () => {
+    if (!user) {
+      setCartCount(0);
+      return;
+    }
+    try {
+      const cartItems = await cartService.getCart();
+      if (Array.isArray(cartItems)) {
+        setCartCount(cartItems.length);
+      }
+    } catch (error) {
+      console.error("Sepet adedi güncellenirken hata oluştu (Oturum geçersiz olabilir):", error);
+    }
   }, [user]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadCartCount = async () => {
+      await fetchCartCount();
+      if (!isMounted) return;
+    };
+
+    void loadCartCount();
+
+    const handleCartUpdated = () => {
+      void loadCartCount();
+    };
+
+    window.addEventListener('cartUpdated', handleCartUpdated);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('cartUpdated', handleCartUpdated);
+    };
+  }, [fetchCartCount]);
   return (
     <div style={{ 
       backgroundColor: theme.navbarBg, 
@@ -50,7 +69,6 @@ export default function Navbar() {
       zIndex: 50,
       backdropFilter: 'blur(8px)'
     }}>
-      {/* 🚀 Canlı Animasyonlar ve Global Link Tasarımları */}
       <style>{`
         @keyframes apiPulse {
           0% { transform: scale(0.9); opacity: 0.6; }
@@ -78,6 +96,17 @@ export default function Navbar() {
           transform: translateY(-1px);
           background-color: rgba(255, 255, 255, 0.12);
           border-color: rgba(255, 255, 255, 0.2);
+        }
+        /* 👑 Admin Paneli Butonuna Özel Dikkat Çekici Tema Stilleri */
+        .admin-menu-link {
+          background-color: rgba(245, 158, 11, 0.12) !important;
+          border: 1px solid rgba(245, 158, 11, 0.3) !important;
+          color: #f59e0b !important;
+        }
+        .admin-menu-link:hover {
+          background-color: rgba(245, 158, 11, 0.22) !important;
+          border-color: rgba(245, 158, 11, 0.5) !important;
+          color: #fbbf24 !important;
         }
       `}</style>
 
@@ -116,12 +145,20 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* 🧭 ORTA KISIM: Dinamik Navigasyon Köprüleri */}
+      {/* 🧭 ORTA KISIM: Dinamik Navigasyon */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         <Link to="/" className="nav-menu-link">
           <Store size={14} style={{ opacity: 0.9 }} />
           Vitrin
         </Link>
+
+        {/* 👑 ADMİN BUTONU: Sadece Admin rolüne sahip giriş yapmış üyelere görünür */}
+        {isAdmin && (
+          <Link to="/admin" className="nav-menu-link admin-menu-link">
+            <Shield size={14} style={{ opacity: 0.9 }} />
+            Yönetim Paneli 🛠️
+          </Link>
+        )}
 
         {user && (
           <>
@@ -130,7 +167,6 @@ export default function Navbar() {
               Siparişlerim
             </Link>
 
-            {/* 🛒 Canlı Bildirim Rozetli Sepet Butonu */}
             <Link to="/sepet" className="nav-menu-link" style={{ position: 'relative', paddingRight: cartCount > 0 ? '34px' : '14px' }}>
               <ShoppingCart size={14} style={{ opacity: 0.9 }} />
               Sepetim
@@ -158,8 +194,6 @@ export default function Navbar() {
 
       {/* SAĞ KISIM: Kontroller & Profil */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-        
-        {/* Kullanıcı İsmi Göstergesi */}
         {user && (
           <div style={{ 
             color: textMainColor, 
@@ -174,11 +208,10 @@ export default function Navbar() {
             border: '1px solid rgba(255, 255, 255, 0.1)'
           }}>
             <User size={15} style={{ opacity: 0.8 }} color={textMainColor} />
-            <span>{user.username || 'Admin'}</span>
+            <span>{user.username || 'Kullanıcı'}</span>
           </div>
         )}
 
-        {/* Tema Değiştirme Butonu */}
         <button 
           onClick={() => setDarkMode(!darkMode)} 
           style={{ 
@@ -202,7 +235,6 @@ export default function Navbar() {
           {darkMode ? 'Gündüz' : 'Gece'}
         </button>
 
-        {/* Çıkış Yap Butonu */}
         {user && (
           <button 
             onClick={() => {
@@ -240,7 +272,6 @@ export default function Navbar() {
           </button>
         )}
 
-        {/* API Çevrimiçi Göstergesi */}
         <div style={{ 
           display: 'flex',
           alignItems: 'center',
@@ -257,7 +288,6 @@ export default function Navbar() {
           <Activity size={12} className="pulse-dot" />
           API ÇEVRİMİÇİ
         </div>
-        
       </div>
     </div>
   );

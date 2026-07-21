@@ -15,11 +15,11 @@ export default function ProductCard({ product, editingProductId, handleProductEd
       </div>
 
       {/* 📸 GÖRSEL ÖNİZLEME ALANI: Eğer veritabanında görsel adresi varsa render edilir */}
-      {product.imageUrl && (
+      {product.imageUrl ? (
         <div style={{ width: '100%', height: '160px', borderRadius: '12px', overflow: 'hidden', marginBottom: '15px', backgroundColor: '#f1f5f9' }}>
-          <img src={`${srvUrl}${product.imageUrl}`} alt={product.productName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img src={product.imageUrl.startsWith('http') ? product.imageUrl : `${srvUrl}/${product.imageUrl.replace(/^\//, '')}`} alt={product.productName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
-      )}
+      ) : null}
 
       <div>
         <h2 style={{ margin: '0 0 10px 0', color: theme.textMain, fontSize: '19px', fontWeight: '800', paddingRight: '140px', lineHeight: '1.3' }}>{product.productName}</h2>

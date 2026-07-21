@@ -23,27 +23,21 @@ namespace DecorLed.Api.Controllers
         }
 
         [HttpGet]
+        [AllowAnonymous]
         public async Task<IActionResult> GetAllProducts()
         {
             try
             {
                 var products = await _productRepository.GetAllProductsAsync();
-
-                if (products == null || !products.Any())
-                {
-                    return NoContent();
-                }
-
-                return Ok(products);
+                // 🟢 NoContent yerine boş liste dönüyoruz ki React tarafı patlamasın
+                return Ok(products ?? new List<Product>());
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Veritabanı bağlantısı sırasında bir hata oluştu {ex.Message}");
+                return StatusCode(500, $"Veritabanı bağlantısı sırasında bir hata oluştu: {ex.Message}");
             }
-           
-            
         }
-
+        [Authorize(Roles = "Admin")]
         [HttpPost]
         public async Task<IActionResult> CreateProduct([FromBody] Product product)
         {
@@ -63,7 +57,7 @@ namespace DecorLed.Api.Controllers
                 return StatusCode(500, $"Sunucu hatası: {ex.Message}");
             }
         }
-
+        [Authorize(Roles = "Admin")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteProduct(int id)
         {
@@ -85,6 +79,7 @@ namespace DecorLed.Api.Controllers
         }
 
         [HttpGet("categories")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetCategories()
         {
             var categories = await _productRepository.GetAllCategoriesAsync();
@@ -98,6 +93,7 @@ namespace DecorLed.Api.Controllers
             return Ok(templates);
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateProduct(int id, [FromBody] Product product)
         {
@@ -109,7 +105,7 @@ namespace DecorLed.Api.Controllers
 
             return Ok();
         }
-
+        [Authorize(Roles = "Admin")]
         [HttpPost("categories")]
         public async Task<IActionResult> CreateCategory([FromBody] CreateCategoryDto dto)
         {
@@ -127,7 +123,7 @@ namespace DecorLed.Api.Controllers
                 return BadRequest(ex.Message);
             }
         }
-
+        [Authorize(Roles = "Admin")]
         [HttpDelete("categories/{id}")]
         public async Task<IActionResult> DeleteCategory(int id)
         {

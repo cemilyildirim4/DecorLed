@@ -5,7 +5,7 @@ using System.Security.Claims;
 
 namespace DecorLed.Api.Controllers
 {
-    [Authorize] // 🔒 Sipariş işlemleri tamamen giriş yapmış gerçek müşterilere özeldir.
+    [Authorize] //  Sipariş işlemleri tamamen giriş yapmış gerçek müşterilere özel şekilde yapılandırılmıştır.
     [ApiController]
     [Route("api/[controller]")]
     public class OrderController : ControllerBase

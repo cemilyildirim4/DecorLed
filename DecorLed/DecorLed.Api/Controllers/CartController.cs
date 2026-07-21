@@ -5,7 +5,7 @@ using System.Security.Claims;
 
 namespace DecorLed.Api.Controllers
 {
-    [Authorize] // 🔒 Tüm sepet işlemleri giriş yapmış kullanıcılara özeldir.
+    [Authorize] //  Tüm sepet işlemleri giriş yapmış kullanıcılara özeldir.
     [ApiController]
     [Route("api/[controller]")]
     public class CartController : ControllerBase
@@ -18,13 +18,25 @@ namespace DecorLed.Api.Controllers
         }
 
         // 💡 Yardımcı Metot: JWT Token içerisinden NameIdentifier (User ID) değerini güvenle söker.
+        //private int GetCurrentUserId()
+        //{
+        //    var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("id");
+        //    if (userIdClaim == null)
+        //    {
+        //        throw new UnauthorizedAccessException("Kullanıcı kimliği token içerisinde bulunamadı.");
+        //    }
+        //    return int.Parse(userIdClaim.Value);
+        //}
+
         private int GetCurrentUserId()
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("id");
+
             if (userIdClaim == null)
             {
                 throw new UnauthorizedAccessException("Kullanıcı kimliği token içerisinde bulunamadı.");
             }
+
             return int.Parse(userIdClaim.Value);
         }
 

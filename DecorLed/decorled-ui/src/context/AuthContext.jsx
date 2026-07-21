@@ -19,36 +19,49 @@ export function AuthProvider({ children }) {
       }
 
       try {
-        // Backend'deki /auth/me endpoint'ine istek atarak token'ı doğruluyoruz
         const response = await api.get('/auth/me');
-        
-        // Backend'den gelen kullanıcı bilgilerini state'e yazıyoruz
-        setUser({ username: response.data.username });
+        const nextUser = {
+          username: response.data.username || '',
+          role: response.data.role || null
+        };
+        setUser(nextUser);
         setIsAuthenticated(true);
       } catch (err) {
-        // Eğer token süresi dolmuşsa veya geçersizse local'i temizle
         console.error("Token doğrulama başarısız:", err);
         localStorage.removeItem('token');
         setIsAuthenticated(false);
         setUser(null);
       } finally {
-        // İstek başarılı da olsa başarısız da olsa yükleme ekranını kapat
         setLoading(false);
       }
     };
 
     verifyToken();
+
+    // 📡 Axios interceptor'dan gelen zorunlu çıkış sinyalini dinle
+    const handleForceLogout = () => {
+      setIsAuthenticated(false);
+      setUser(null);
+    };
+
+    window.addEventListener('auth-force-logout', handleForceLogout);
+    return () => window.removeEventListener('auth-force-logout', handleForceLogout);
   }, []);
 
   const login = async (credentials) => {
     const response = await api.post('/auth/login', credentials);
-    const { token } = response.data;
-    
+    const { token, user: serverUser, role } = response.data;
+
+    if (!token) {
+      throw new Error('Token alınamadı.');
+    }
+
+    const authUser = serverUser || { username: credentials.username, role: role || null };
+
     localStorage.setItem('token', token);
     setIsAuthenticated(true);
-    setUser({ username: credentials.username });
-
-    return response.data; 
+    setUser(authUser);
+    return response.data;
   };
 
   const logout = () => {
